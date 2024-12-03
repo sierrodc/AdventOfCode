@@ -1,4 +1,4 @@
-﻿using var file = File.OpenText("lists.txt");
+﻿using var file = File.OpenText("X:\\Personal\\AdventOfCode\\DATASET\\one\\input.txt");
 
 //read all lines of the file
 string? line;
