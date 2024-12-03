@@ -19,6 +19,7 @@ secondList.Sort();
 var sum = firstList.Zip(secondList).Sum(x => Math.Abs(x.First - x.Second));
 Console.WriteLine($"Items: {firstList.Count}, {secondList.Count}: Total distance is {sum}");
 
+// lists are sorted => this code can be optimized
 var firstListOccurrence = firstList.CountBy(x => x).ToDictionary(x => x.Key, x => x.Value);
 var secondListOccurrence = secondList.CountBy(x => x).ToDictionary(x => x.Key, x => x.Value);
 
