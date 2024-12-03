@@ -1,4 +1,6 @@
-﻿using var file = File.OpenText("X:\\Personal\\AdventOfCode\\DATASET\\one\\input.txt");
+﻿var initTs = System.Diagnostics.Stopwatch.GetTimestamp();
+
+using var file = File.OpenText("X:\\Personal\\AdventOfCode\\DATASET\\one\\input.txt");
 
 //read all lines of the file
 string? line;
@@ -27,3 +29,4 @@ var secondSum = firstListOccurrence.Sum(i => i.Key /*the number in first list*/ 
 // secondSum += secondListOccurrence.Sum(i => i.Key /*the number in second list*/ * i.Value /*how many times in second list*/ * firstListOccurrence.GetValueOrDefault(i.Key, 0) /*how many times in second list*/);
 
 Console.WriteLine($"Second total distance is {secondSum}");
+Console.WriteLine($"Time: {System.Diagnostics.Stopwatch.GetElapsedTime(initTs).TotalMilliseconds}ms");

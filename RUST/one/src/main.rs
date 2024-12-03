@@ -1,6 +1,8 @@
 use std::{collections::HashMap, io::BufRead};
+use std::time::Instant;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let init_ts = Instant::now();
     let filename = "X:\\Personal\\AdventOfCode\\DATASET\\one\\input.txt";
     let filepath = std::path::Path::new(filename);
 
@@ -39,6 +41,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("First distance: {result}");
     println!("Second distance: {result2}");
-
+    println!("Elapsed time: {:.2?}", init_ts.elapsed());
     Ok(())
 }
