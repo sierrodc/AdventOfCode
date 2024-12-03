@@ -1,4 +1,4 @@
-use std::{io::BufRead, path};
+use std::{collections::HashMap, io::BufRead, path};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let filename = "X:\\Personal\\AdventOfCode\\DATASET\\one\\input.txt";
@@ -25,7 +25,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let result: i32 = first.iter().zip(second.iter()).map(|(a, b)| (a-b).abs()).sum();
 
-    println!("Result: {result}");
+    let mut first_occurrences: HashMap<i32, i32> = HashMap::new();
+    let mut second_occurrences: HashMap<i32, i32> = HashMap::new();
+    for item in first {
+        *first_occurrences.entry(item).or_insert(0) += 1;      
+    }
+    for item in second {
+        *second_occurrences.entry(item).or_insert(0) += 1;      
+    }
+
+    let result2: i32 = first_occurrences.iter().map(|(key, val)| key * val * second_occurrences.get(key).unwrap_or(&0)).sum();
+
+    println!("First distance: {result}");
+    println!("Second distance: {result2}");
 
     Ok(())
 }
