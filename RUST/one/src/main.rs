@@ -6,9 +6,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let filename = "X:\\Personal\\AdventOfCode\\DATASET\\one\\input.txt";
     let filepath = std::path::Path::new(filename);
 
-    if !filepath.exists() {
-        return Err(Box::new(std::io::Error::new(std::io::ErrorKind::Other, format!("File {filename} doesn't exist"))));
-    }
     let file = std::fs::File::open(&filepath)?;
     let reader = std::io::BufReader::new(file);
 
