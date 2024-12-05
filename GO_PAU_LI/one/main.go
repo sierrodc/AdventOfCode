@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"math"
 	"os"
 	"sort"
 	"strconv"
@@ -38,14 +37,29 @@ func main() {
 
 	sort.Ints(inputList1)
 	sort.Ints(inputList2)
-
-	var totalDistance = 0
+	// First Part
+	/*	var totalDistance = 0
+		for n := range inputList1 {
+			totalDistance += int(math.Abs(float64(inputList1[n] - inputList2[n])))
+		}*/
+	// Second Part
+	var totalSimilarity = 0
 	for n := range inputList1 {
-		totalDistance += int(math.Abs(float64(inputList1[n] - inputList2[n])))
+		totalSimilarity += inputList1[n] * estimateSimilarity(inputList1[n], inputList2)
 	}
 
-	fmt.Println(totalDistance)
+	fmt.Println(totalSimilarity)
 	elapsed := time.Since(start)
 
 	fmt.Printf("Elapsed %s\n", elapsed)
+}
+
+func estimateSimilarity(num int, list []int) int {
+	total := 0
+	for n := range list {
+		if list[n] == num {
+			total += 1
+		}
+	}
+	return total
 }
