@@ -44,8 +44,13 @@ func main() {
 		}*/
 	// Second Part
 	var totalSimilarity = 0
+	dictSimilarities := make(map[int]int)
 	for n := range inputList1 {
-		totalSimilarity += inputList1[n] * estimateSimilarity(inputList1[n], inputList2)
+		_, entryExists := dictSimilarities[inputList1[n]]
+		if !entryExists {
+			dictSimilarities[inputList1[n]] = estimateSimilarity(inputList1[n], inputList2)
+		}
+		totalSimilarity += inputList1[n] * dictSimilarities[inputList1[n]]
 	}
 
 	fmt.Println(totalSimilarity)
