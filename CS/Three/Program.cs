@@ -35,10 +35,8 @@ static int GetMultiplications(Regex regex, ReadOnlySpan<char> codeSpan)
     {
         var factorsSpan = codeSpan.Slice(m.Index + 4 /* mul( */, m.Length - 4 - 1 /* mul() */);
         var comaIndex = factorsSpan.IndexOf(',');
-
         var first = int.Parse(factorsSpan.Slice(0, comaIndex));
         var second = int.Parse(factorsSpan.Slice(comaIndex + 1));
-                
         total += first * second;
     }
 
