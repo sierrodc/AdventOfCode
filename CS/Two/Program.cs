@@ -4,7 +4,6 @@ static bool IsReportCorrect(List<byte> report, int? levelIdxToSkip)
 {
     byte? lastLevel = null;
     char direction = '='; // no direction
-    bool isCorrect = true;
 
     int currentLevelIndex = -1;
     while (currentLevelIndex + 1 < report.Count)
@@ -26,11 +25,9 @@ static bool IsReportCorrect(List<byte> report, int? levelIdxToSkip)
         {
             //Problem Dampener
             if (!levelIdxToSkip.HasValue)
-                isCorrect = IsReportCorrect(report, 0) || IsReportCorrect(report, currentLevelIndex - 1) || IsReportCorrect(report, currentLevelIndex);
+                return IsReportCorrect(report, currentLevelIndex - 1) || IsReportCorrect(report, currentLevelIndex) || IsReportCorrect(report, 0);
             else
-                isCorrect = false;
-
-            break;
+                return false;
         }
 
         var currentDirection = newLevel > lastLevel ? '>' : '<';
@@ -45,25 +42,23 @@ static bool IsReportCorrect(List<byte> report, int? levelIdxToSkip)
         if (direction != currentDirection)
         {
             if (!levelIdxToSkip.HasValue)
-                isCorrect = IsReportCorrect(report, 0) || IsReportCorrect(report, currentLevelIndex - 1) || IsReportCorrect(report, currentLevelIndex);
+                return IsReportCorrect(report, currentLevelIndex - 1) || IsReportCorrect(report, currentLevelIndex) || IsReportCorrect(report, 0);
             else
-                isCorrect = false;
-            break;
+                return false;
         }
 
         lastLevel = newLevel;
     }
 
-    return isCorrect;
+    return true;
 }
 
-using var file = File.OpenText("X:\\Personal\\AdventOfCode\\DATASET\\two\\input.txt");
+using var file = File.OpenText("D:\\Personal\\AdventOfCode\\DATASET\\two\\input.txt");
 
 //read all lines of the file
 string? report;
 int correctReports = 0;
 int correctReportsConsideringDampener = 0;
-int reportIndex = 0;
 List<byte> reportLevels = new List<byte>(10);
 
 while ((report = await file.ReadLineAsync()) is not null)
@@ -73,7 +68,6 @@ while ((report = await file.ReadLineAsync()) is not null)
     foreach (var level in reportSpan.Split(' '))
         reportLevels.Add(byte.Parse(reportSpan[level]));
 
-    reportIndex++;
     if (IsReportCorrect(reportLevels, -1))
         correctReports++;
     if (IsReportCorrect(reportLevels, null))
