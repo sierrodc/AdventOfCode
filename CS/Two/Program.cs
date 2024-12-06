@@ -1,28 +1,23 @@
-﻿using System.Diagnostics;
+﻿var initTs = System.Diagnostics.Stopwatch.GetTimestamp();
 
-var initTs = System.Diagnostics.Stopwatch.GetTimestamp();
-
-static bool IsReportCorrect(ReadOnlySpan<char> report, Range? levelToSkip)
+static bool IsReportCorrect(List<byte> report, int? levelIdxToSkip)
 {
-    if (report.StartsWith("16 14 12 8 6 8"))
-        Console.WriteLine("ah");
-
-    var items = report.Split(' ');
     byte? lastLevel = null;
-    Range lastLevelRange = 0..0;
     char direction = '='; // no direction
     bool isCorrect = true;
-    while (items.MoveNext())
+
+    int currentLevelIndex = -1;
+    while (currentLevelIndex + 1 < report.Count)
     {
+        currentLevelIndex++;
         // level to skip based on Problem Dampener
-        if (levelToSkip.HasValue && items.Current.Equals(levelToSkip.Value))
+        if (levelIdxToSkip.HasValue && currentLevelIndex.Equals(levelIdxToSkip.Value))
             continue;
 
-        var newLevel = byte.Parse(report[items.Current]);
+        var newLevel = report[currentLevelIndex];
         if (lastLevel is null) // first number read
         {
             lastLevel = newLevel;
-            lastLevelRange = items.Current;
             continue;
         }
 
@@ -30,8 +25,8 @@ static bool IsReportCorrect(ReadOnlySpan<char> report, Range? levelToSkip)
         if (deltaLevel > 3 || deltaLevel < -3 || deltaLevel == 0)
         {
             //Problem Dampener
-            if(!levelToSkip.HasValue)
-                isCorrect = IsReportCorrect(report, lastLevelRange) || IsReportCorrect(report, items.Current);
+            if (!levelIdxToSkip.HasValue)
+                isCorrect = IsReportCorrect(report, 0) || IsReportCorrect(report, currentLevelIndex - 1) || IsReportCorrect(report, currentLevelIndex);
             else
                 isCorrect = false;
 
@@ -44,21 +39,19 @@ static bool IsReportCorrect(ReadOnlySpan<char> report, Range? levelToSkip)
         {
             direction = currentDirection;
             lastLevel = newLevel;
-            lastLevelRange = items.Current;
             continue;
         }
 
         if (direction != currentDirection)
         {
-            if (!levelToSkip.HasValue)
-                isCorrect = IsReportCorrect(report, lastLevelRange) || IsReportCorrect(report, items.Current);
+            if (!levelIdxToSkip.HasValue)
+                isCorrect = IsReportCorrect(report, 0) || IsReportCorrect(report, currentLevelIndex - 1) || IsReportCorrect(report, currentLevelIndex);
             else
                 isCorrect = false;
             break;
         }
 
         lastLevel = newLevel;
-        lastLevelRange = items.Current;
     }
 
     return isCorrect;
@@ -70,14 +63,21 @@ using var file = File.OpenText("X:\\Personal\\AdventOfCode\\DATASET\\two\\input.
 string? report;
 int correctReports = 0;
 int correctReportsConsideringDampener = 0;
+int reportIndex = 0;
+List<byte> reportLevels = new List<byte>(10);
+
 while ((report = await file.ReadLineAsync()) is not null)
 {
-    if (IsReportCorrect(report, 0..0))
+    reportLevels.Clear();
+    var reportSpan = report.AsSpan();
+    foreach (var level in reportSpan.Split(' '))
+        reportLevels.Add(byte.Parse(reportSpan[level]));
+
+    reportIndex++;
+    if (IsReportCorrect(reportLevels, -1))
         correctReports++;
-    if (IsReportCorrect(report, null))
+    if (IsReportCorrect(reportLevels, null))
         correctReportsConsideringDampener++;
-    else
-        Console.WriteLine($"Wrong: {report}");
 }
 
 Console.WriteLine($"Correct reports: {correctReports}, {correctReportsConsideringDampener} considering Dampener in {System.Diagnostics.Stopwatch.GetElapsedTime(initTs).TotalMilliseconds}ms");
