@@ -1,19 +1,16 @@
-use core::num;
 use std::collections::{HashMap, HashSet};
 use std::io::BufRead;
-use std::ops::Index;
-use std::usize;
 use std::time::Instant;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let init_ts = Instant::now();
-    let filename = "X:\\Personal\\AdventOfCode\\DATASET\\five\\input.txt";
+    let filename = "D:\\Personal\\AdventOfCode\\DATASET\\five\\input.txt";
     let filepath = std::path::Path::new(filename);
 
     let file = std::fs::File::open(&filepath)?;
     let reader = std::io::BufReader::new(file);
 
-    let mut rules: HashMap<u8, HashSet<u8>> = HashMap::new();
+    let mut rules: HashMap<i32, HashSet<i32>> = HashMap::new();
 
     let mut lines_iterator = reader.lines();
     for rule in lines_iterator.by_ref() {
@@ -22,90 +19,77 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             break;
         }
         let separator_index = rule.find('|').unwrap();
-        let key: u8 = rule[..separator_index].parse()?;
-        let value: u8 = rule[separator_index+1..].parse()?;
+        let key: i32 = rule[..separator_index].parse()?;
+        let value: i32 = rule[separator_index+1..].parse()?;
         
         let greater_numbers = rules.entry(key).or_insert(HashSet::new());
         greater_numbers.insert(value);
     }
 
-    let mut total_valid = 0;
+    let mut total_valid:i32 = 0;
+    let mut total_valid_sorted:i32 = 0;
+    let mut unable_to_sort:i32 = 0;
     for updates in lines_iterator.by_ref() {
         let updates = updates?;
-        let numbers: Vec<u8> = updates.split(',').map(|n|n.parse().unwrap()).collect();
+        let numbers: Vec<i32> = updates.split(',').map(|n|n.parse().unwrap()).collect();
 
-        // going to check all couples
-        let mut is_valid = true;
-        for (l_idx, l) in numbers.iter().enumerate().rev() {
-            print!("{l_idx}");
-            if let Some(el) = rules.get(l) {
-                for g in numbers.iter().take(l_idx - 1) {
-                    if el.contains(g) {
-                        is_valid = false;
-                        break;
-                    }
+        if is_update_correct(&numbers, &rules) {
+            let middle_number = numbers.get(numbers.len() / 2).unwrap();
+            total_valid += middle_number;
+        } else if let Some(sorted_number) = sort_numbers(&numbers, &rules) {
+            let middle_number = sorted_number.get(sorted_number.len() / 2).unwrap();
+            total_valid_sorted += middle_number;
+        } else {
+            unable_to_sort += 1;
+        }
+    }
+
+    println!("Valid: {total_valid}, Sorted: {total_valid_sorted}, invalid sequences: {unable_to_sort} in {:.2?}", init_ts.elapsed());
+    Ok(())
+}
+
+fn is_update_correct(numbers: &Vec<i32>, rules: &HashMap<i32, HashSet<i32>>) -> bool {
+    // going to check all couples
+    for (l_idx, l) in numbers.iter().enumerate().skip(1) { // from second element
+        if let Some(el) = rules.get(l) {
+            for g in numbers.iter().take(l_idx) { // check previous elements
+                if el.contains(g) {
+                    return false;
                 }
+            }
+        }
+    };
 
-                if !is_valid {
+    return true;
+}
+
+fn sort_numbers(numbers: &Vec<i32>, rules: &HashMap<i32, HashSet<i32>>) -> Option<Vec<i32>> {
+    let mut result: Vec<i32> = Vec::with_capacity(numbers.len());
+
+    for new_number in numbers {
+        // idx == numbers available in result
+        let mut insert_idx = result.len(); // default: end of array
+        if let Some(greaters) = rules.get(new_number) {
+            for (r_idx, r_number) in result.iter().enumerate() {
+                // if r < new_number -> insert in specific location + check if feasible.
+                if greaters.contains(r_number) {
+                    insert_idx = r_idx;
                     break;
                 }
             }
         }
 
-        if is_valid {
-            let middle_number = numbers.get(numbers.len() / 2 + 1).unwrap();
-            total_valid += middle_number;
+        result.insert(insert_idx, *new_number);
+        // I need to check that all next elements are not < new inserted value
+
+        for already_added_number in result.iter().skip(insert_idx+1) {
+            if let Some(greaters) = rules.get(already_added_number) {
+                if greaters.contains(new_number) {
+                    return None;
+                }
+            }
         }
     }
 
-    println!("Correct reports: {total_valid} considering Dampener in {:.2?}", init_ts.elapsed());
-    Ok(())
-}
-
-fn is_report_correct(levels: &Vec<i8>, level_idx_to_skip: Option<usize>) -> bool {
-    let mut last_level: Option<&i8> = None;
-    let mut record_direction: Option<bool> = Option::None;
-
-    for (level_idx, new_level) in levels.iter().enumerate() {
-        // level to skip based on Problem Dampener
-        if Some(level_idx) == level_idx_to_skip {
-            continue;
-        }
-        if last_level == None {
-            last_level = Some(new_level);
-            continue;
-        }
-        let last_level_value = last_level.unwrap();
-        let delta_level = new_level - last_level_value;
-        if delta_level > 3 || delta_level < -3 || delta_level == 0 {
-            //Problem Dampener
-            return match level_idx_to_skip {
-                None => is_report_correct(levels, Some(level_idx-1)) 
-                     || is_report_correct(levels, Some(level_idx))
-                     || is_report_correct(levels, Some(0)),
-                _ => false
-            };
-        }
-
-        let current_direction = Some(new_level > last_level_value);
-
-        if record_direction == None {
-            record_direction = current_direction;
-            last_level = Some(new_level);
-            continue;
-        }
-
-        if record_direction != current_direction {
-            return match level_idx_to_skip {
-                None => is_report_correct(levels, Some(level_idx-1)) 
-                     || is_report_correct(levels, Some(level_idx))
-                     || is_report_correct(levels, Some(0)),
-                _ => false
-            };
-        }
-
-        last_level = Some(new_level);
-    }
-
-    return true;
+    return Some(result);
 }
