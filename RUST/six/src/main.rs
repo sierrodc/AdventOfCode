@@ -4,7 +4,7 @@ use std::time::Instant;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let init_ts = Instant::now();
-    let filename = "X:\\Personal\\AdventOfCode\\DATASET\\six\\test.txt";
+    let filename = "D:\\Personal\\AdventOfCode\\DATASET\\six\\test.txt";
     let filepath = std::path::Path::new(filename);
 
     let file = std::fs::File::open(&filepath)?;
@@ -65,10 +65,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     while !santa.quitted {
         let (new_visited, new_straight_path) = move_santa(&mut santa, &mut map, total_rows, total_columns);
 
-        println!("{new_straight_path:?}");
         // check if there's an intersection with previous direction
         loops += straight_paths.iter()
-            .filter(|s| s.intersect(&new_straight_path))
+            .filter(|s| s.intersect(&new_straight_path, &map))
             .count();
 
         straight_paths.push(new_straight_path);
@@ -191,50 +190,27 @@ struct StraightPath {
 }
 
 impl StraightPath {
-    fn intersect(&self, next_path: &StraightPath) -> bool {
-        if self.direction != next_path.direction.get_next_direction() {
+    fn intersect(&self, new_path: &StraightPath, map: &Vec<Vec<u8>>) -> bool {
+        if self.direction != new_path.direction.get_next_direction() {
             return false;
         }
-
-        println!("{self:?} vs {next_path:?}");
-
-        let mut intersection = false;
-        if self.direction.is_horizontal() {
-            let self_row = self.from_row_index;
-            let self_from_col = cmp::min(self.from_col_index, self.to_col_index);
-            let self_to_col = cmp::max(self.from_col_index, self.to_col_index);
-            
-            let next_col = next_path.from_col_index;
-            let next_from_row = cmp::min(next_path.from_row_index, next_path.to_row_index);
-            let next_to_row = cmp::max(next_path.from_row_index, next_path.to_row_index);
-
-            intersection = self_from_col <= next_col && self_to_col >= next_col && 
-                        next_from_row <= self_row && next_to_row >= self_row;
-        } else {
-            let self_col = self.from_col_index;
-            let self_from_row = cmp::min(self.from_row_index, self.to_row_index);
-            let self_to_row = cmp::max(self.from_row_index, self.to_row_index);
-            
-            let next_row = next_path.from_row_index;
-            let next_from_col = cmp::min(next_path.from_col_index, next_path.to_col_index);
-            let next_to_col = cmp::max(next_path.from_col_index, next_path.to_col_index);
-
-
-            intersection = next_from_col <= self_col && next_to_col >= self_col &&
-                    self_from_row <= next_row && self_to_row >= next_row;
-        }
-
-        if intersection {
-            println!("CROSS_____ {self:?} vs {next_path:?}");
-        }
-
-        return intersection;
-
-        //
-
-        //let row_overlap = self.from_row_index <= next_path.to_row_index && self.to_row_index >= next_path.from_row_index;
-        //let col_overlap = self.from_col_index <= next_path.to_col_index && self.to_col_index >= next_path.from_col_index;
         
-        //row_overlap && col_overlap
+
+        let x =  match (new_path.direction, self.direction) {
+            (Direction::Left, Direction::Up) => {
+                // there is a path that is a extension of self that can exists
+                return true;
+            },
+            (Direction::Up, Direction::Right) => {
+                return true;
+            },
+            (Direction::Right, Direction::Down) => {
+                return true;
+            },
+            (Direction::Down, Direction::Left) => {
+                return true;
+            }
+            _ => return false
+        };
     }
 }
