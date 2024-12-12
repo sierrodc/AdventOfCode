@@ -1,16 +1,17 @@
-use std::cmp;
+use std::collections::HashSet;
+use std::hash::Hash;
 use std::io::BufRead;
 use std::time::Instant;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let init_ts = Instant::now();
-    let filename = "D:\\Personal\\AdventOfCode\\DATASET\\six\\test.txt";
+    let filename = "D:\\Personal\\AdventOfCode\\DATASET\\six\\input.txt";
     let filepath = std::path::Path::new(filename);
 
     let file = std::fs::File::open(&filepath)?;
     let reader = std::io::BufReader::new(file);
 
-    let mut santa = Santa {
+    let mut original_santa = Santa {
         col_index: 0,
         row_index: 0,
         direction: Direction::Up,
@@ -36,7 +37,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         blocks_by_row.push(row_blocks);
 
         if let Some(santa_pos) = row.find('^') {
-            santa = Santa {
+            original_santa = Santa {
                 row_index: row_idx,
                 col_index: santa_pos,
                 direction: Direction::Up,
@@ -46,49 +47,67 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let total_rows = blocks_by_row.len();
-    let total_columns = blocks_by_column.len();
+    let total_cols = blocks_by_column.len();
 
     // fill matrix
-    println!("Creating a matrix of {total_rows}rows x {total_columns}columns");
-    let mut map: Vec<Vec<u8>> = vec![vec![0; total_columns]; total_rows]; // 0=unvisited, 1=visited, 2=block
+    println!("Creating a matrix of {total_rows}rows x {total_cols}columns");
+    let mut original_map: Vec<Vec<u8>> = vec![vec![0; total_cols]; total_rows]; // 0=unvisited, 1=visited, 2=block
     for (br_idx, br) in blocks_by_row.iter().enumerate() {
         for bc in br {
-            map[br_idx][*bc] = 2; // block
+            original_map[br_idx][*bc] = 2; // block
         }
     }
 
+    let mut map = original_map.clone();
+    let mut santa = original_santa.clone();
+
+    // count visited positions
     map[santa.row_index][santa.col_index] = 1;
     let mut visited = 1;
-    let mut straight_paths: Vec<StraightPath> = Vec::new();
 
-    let mut loops = 0;
     while !santa.quitted {
-        let (new_visited, new_straight_path) = move_santa(&mut santa, &mut map, total_rows, total_columns);
-
-        // check if there's an intersection with previous direction
-        loops += straight_paths.iter()
-            .filter(|s| s.intersect(&new_straight_path, &map))
-            .count();
-
-        straight_paths.push(new_straight_path);
+        let (new_visited, _) = move_santa(&mut santa, &mut map, total_rows, total_cols);
         visited += new_visited;
     }
 
+    // check loops adding one block
+    let mut loops:u32 = 0;
+    for (row_idx, col) in map.iter().enumerate() {
+        for (col_idx, value) in col.iter().enumerate() {
+            if *value == 1 && !(row_idx == original_santa.row_index && col_idx == original_santa.col_index) {
+                // test loops
+                let mut test_map = original_map.clone();
+                let mut test_santa = original_santa.clone();
+                test_map[row_idx][col_idx] = 2; // contains block
+                if map_contains_loop(&mut test_map, &mut test_santa, total_rows, total_cols) {
+                    loops += 1;
+                }
+            }
+        }
+    }
+    
     println!("Visited: {visited}, possible loops {loops} in {:.2?}", init_ts.elapsed());
     Ok(())
 }
 
-// 0=unvisited, 1=visited, 2=block
-fn move_santa(santa: &mut Santa, map: &mut Vec<Vec<u8>>, total_rows: usize, total_cols: usize) -> (i32, StraightPath) {
-    let mut visited: i32 = 0;
+fn map_contains_loop(map: &mut Vec<Vec<u8>>, santa: &mut Santa, total_rows: usize, total_cols: usize) -> bool {
+    let mut blocks: HashSet<Block> = HashSet::new();
+    while !santa.quitted {
+        let (_, block) = move_santa(santa, map, total_rows, total_cols);
 
-    let mut sp = StraightPath {
-        direction: santa.direction,
-        from_col_index: santa.col_index,
-        from_row_index: santa.row_index,
-        to_col_index: 0,
-        to_row_index: 0
-    };
+        if let Some(block) = block {
+            if blocks.insert(block) == false { // blocked before => loop!
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+// 0=unvisited, 1=visited, 2=block
+fn move_santa(santa: &mut Santa, map: &mut Vec<Vec<u8>>, total_rows: usize, total_cols: usize) -> (i32, Option<Block>) {
+    let mut visited: i32 = 0;
 
     loop {
         if santa.direction == Direction::Up && santa.row_index == 0 {
@@ -97,14 +116,12 @@ fn move_santa(santa: &mut Santa, map: &mut Vec<Vec<u8>>, total_rows: usize, tota
             santa.quitted = true;
         } else if santa.direction == Direction::Right && santa.col_index == total_cols - 1 {
             santa.quitted = true;
-        } else if santa.direction == Direction::Left && santa.row_index == 0 {
+        } else if santa.direction == Direction::Left && santa.col_index == 0 {
             santa.quitted = true;
         }
 
         if santa.quitted {
-            sp.to_col_index = santa.col_index;
-            sp.to_row_index = santa.row_index;
-            return (visited, sp);
+            return (visited, None);
         }
 
         let next_row = match santa.direction {
@@ -130,23 +147,25 @@ fn move_santa(santa: &mut Santa, map: &mut Vec<Vec<u8>>, total_rows: usize, tota
             santa.update_position(next_row, next_col);
         } else if next_block == 2 {
             // block
+            let block = Block {
+                row_index: santa.row_index,
+                col_index: santa.col_index,
+                direction: santa.direction
+            };
             santa.direction = santa.direction.get_next_direction();
-            sp.to_col_index = santa.col_index;
-            sp.to_row_index = santa.row_index;
 
-            return (visited, sp);
+            return (visited, Some(block));
         }
     }
 }
 
-#[derive(PartialEq, Eq, Clone, Copy, Debug)]
+#[derive(PartialEq, Eq, Clone, Copy, Hash, Debug)]
 enum Direction {
     Up,
     Down,
     Left,
     Right,
 }
-
 impl Direction {
     fn get_next_direction(&self) -> Direction {
         return match self {
@@ -156,17 +175,16 @@ impl Direction {
             Direction::Left => Direction::Up
         };
     }
-
-    fn is_horizontal(&self) -> bool {
-        return match self {
-            Direction::Up => false,
-            Direction::Right => true,
-            Direction::Down => false,
-            Direction::Left => true
-        };
-    }
 }
 
+#[derive(PartialEq, Eq, Hash)]
+struct Block {
+    row_index: usize,
+    col_index: usize,
+    direction: Direction
+}
+
+#[derive(Clone, Copy)]
 struct Santa {
     row_index: usize,
     col_index: usize,
@@ -178,39 +196,5 @@ impl Santa {
     fn update_position(&mut self, row_index: usize, col_index: usize) {
         self.row_index = row_index;
         self.col_index = col_index;
-    }
-}
-#[derive(Debug)]
-struct StraightPath {
-    from_row_index: usize,
-    to_row_index: usize,
-    from_col_index: usize,
-    to_col_index: usize,
-    direction: Direction
-}
-
-impl StraightPath {
-    fn intersect(&self, new_path: &StraightPath, map: &Vec<Vec<u8>>) -> bool {
-        if self.direction != new_path.direction.get_next_direction() {
-            return false;
-        }
-        
-
-        let x =  match (new_path.direction, self.direction) {
-            (Direction::Left, Direction::Up) => {
-                // there is a path that is a extension of self that can exists
-                return true;
-            },
-            (Direction::Up, Direction::Right) => {
-                return true;
-            },
-            (Direction::Right, Direction::Down) => {
-                return true;
-            },
-            (Direction::Down, Direction::Left) => {
-                return true;
-            }
-            _ => return false
-        };
     }
 }
