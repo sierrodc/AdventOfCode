@@ -3,7 +3,7 @@ use std::time::Instant;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let init_ts = Instant::now();
-    let filename = "X:\\Personal\\AdventOfCode\\DATASET\\six\\test.txt";
+    let filename = "X:\\Personal\\AdventOfCode\\DATASET\\seven\\input.txt";
     let filepath = std::path::Path::new(filename);
 
     let file = std::fs::File::open(&filepath)?;
@@ -18,7 +18,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let terms: Vec<u64> = terms.split_whitespace().map(|t| t.parse::<u64>().unwrap()).collect();
 
 
-        if can_create_operation(&terms, &result) {
+        if can_create_operation(&terms, result) {
             sum += result;
         }
     }
@@ -27,19 +27,47 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn can_create_operation(terms: &Vec<u64>, result: &u64) -> bool {
+fn can_create_operation(terms: &Vec<u64>, result: u64) -> bool {
     let operations = terms.len() - 1;
 
-    if terms.iter().sum::<u64>() == *result {
+    // consider all '+'
+    if terms.iter().sum::<u64>() == result {
         return true;
     }
     
-    let base: u64 = 2;
-    let max_number = base.pow(operations as u32) - 1;
-    let multiplications = 0;
-    while multiplications < max_number {
+    let mut operations: Vec<char> = vec!['+'; operations];
+    while !operations.iter().all(|c| *c == '|') {
 
+        // modify operations. the first +++++ is computed before the while
+        for op_idx in 0..operations.len() {
+            
+            if operations[op_idx] == '+' {
+                operations[op_idx] = '*';
+                break;
+            } else if operations[op_idx] == '*' {
+                operations[op_idx] = '|';
+                break;
+            } else if operations[op_idx] == '|' {
+                operations[op_idx] = '+';
+            }
+        }
 
+        let mut operation_result = terms[0];
+        for (op, term) in operations.iter().zip(terms.iter().skip(1))  {
+            operation_result = match op {
+                '+' => operation_result + term,
+                '*' => operation_result * term,
+                '|' => operation_result * 10u64.pow( term.ilog10()+1) + term,
+                _ => panic!("Unsopported operation")
+            };
+
+            if operation_result > result { // if already greater, continue with next operation
+                break;
+            }
+        }
+        if operation_result == result {
+            return true;
+        }
     }
 
     return false;

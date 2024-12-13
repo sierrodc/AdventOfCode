@@ -5,7 +5,7 @@ use std::time::Instant;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let init_ts = Instant::now();
-    let filename = "D:\\Personal\\AdventOfCode\\DATASET\\six\\input.txt";
+    let filename = "X:\\Personal\\AdventOfCode\\DATASET\\six\\pm.txt";
     let filepath = std::path::Path::new(filename);
 
     let file = std::fs::File::open(&filepath)?;
