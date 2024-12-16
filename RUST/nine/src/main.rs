@@ -1,32 +1,177 @@
+use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
 use std::time::Instant;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let init_ts = Instant::now();
-    let filename = "D:\\Personal\\AdventOfCode\\DATASET\\nine\\input.txt";
+    let filename = "D:\\Personal\\AdventOfCode\\DATASET\\nine\\test.txt";
     let diskmap = std::fs::read_to_string(filename)?;
 
     // convert diskmap [2333133121414131402] to blocks [00...111...2...333. etc]
     let disk: Vec<DiskBlock> = get_disk_rapresentation(&diskmap);
 
     // iterate from end to beginning to fill empty spaces...
-    let compacted_disk: Vec<DiskBlock> = get_compacted_disk_rapresentation(&disk);
+    let compacted_disk: Vec<DiskBlock> = get_compacted_disk_rapresentation_splitting_spaces(&disk);
+    let compacted_disk_checksum = get_checksum(&compacted_disk);
+     
+    let full_file_compacted_disk: Vec<DiskBlock> = get_compacted_disk_rapresentation_moving_full_file(&disk);
+    let full_file_compacted_disk_checksum = get_checksum(&full_file_compacted_disk);
 
-    let mut sum: u64 = 0;
-    let mut idx: u64 = 0;
-    for block in compacted_disk.iter() {
-        for _rep in 0..block.repetition {
-            sum += idx * block.data.unwrap() as u64;
-            idx += 1;
-        }
-    }   
+    let full_file_compacted_disk_fast: Vec<DiskBlock> = get_compacted_disk_rapresentation_moving_full_file_fast(&disk);
+    let full_file_compacted_disk_fast_checksum = get_checksum(&full_file_compacted_disk_fast);
 
-    println!("Sum {sum} in: {:.2?}", init_ts.elapsed());
+    println!("Sum {compacted_disk_checksum}, not fragmenting fast {full_file_compacted_disk_fast_checksum}, not fragmenting optimized {full_file_compacted_disk_checksum} in: {:.2?}", init_ts.elapsed());
 
     Ok(())
 }
 
-fn get_compacted_disk_rapresentation(disk: &Vec<DiskBlock>) -> Vec<DiskBlock> {
+fn get_checksum(disk: &Vec<DiskBlock>) -> u64 {
+    let mut sum: u64 = 0;
+    let mut idx: u64 = 0;
+    for block in disk.iter() {
+        for _rep in 0..block.repetition {
+            if let Some(data) = block.data {
+                sum += idx * (data as u64);
+                idx += 1;
+            } else {
+                // empty space:
+                idx += block.repetition as u64;
+                break;
+            }
+        }
+    }  
+
+    return sum;
+}
+
+fn get_compacted_disk_rapresentation_moving_full_file(disk: &Vec<DiskBlock>) -> Vec<DiskBlock> {
+    let mut compacted_disk: Vec<DiskBlock> = Vec::new();
+    let mut files_moved: HashSet<&DiskBlock> = HashSet::new();
+
+    // idea: iterate thrugh all disk blocks.
+    // - if it's a space OR a previously moved file, increase available space.
+    // - if it's a file
+    // --- fill previous space
+    // --- add current file (if not already moved)
+
+    let mut spaces: u32 = 0;
+    for disk_block in disk.iter() {
+        if disk_block.data.is_none() || files_moved.contains(disk_block) { // empty
+            spaces += disk_block.repetition;
+        } else {
+            if spaces > 0 { // try to fill space with files
+                for disk_block_movable in disk.iter().rev() {
+                    if disk_block_movable.data.is_none() || files_moved.contains(disk_block_movable) {
+                        continue; // already moved, check next one
+                    }
+
+                    if disk_block_movable.repetition <= spaces && !disk_block_movable.data.is_none() { // is data and can be moved
+                        compacted_disk.push(DiskBlock {
+                            data: disk_block_movable.data,
+                            repetition: disk_block_movable.repetition
+                        });
+                        files_moved.insert(disk_block_movable);
+                        spaces -= disk_block_movable.repetition;
+                    }
+
+                    if disk_block_movable == disk_block {
+                        break; //quit because block same as current one.
+                    }
+                }
+            }
+
+            if spaces > 0 { // no file available found
+                compacted_disk.push(DiskBlock { // no files available
+                    data: None,
+                    repetition: spaces
+                });
+                spaces = 0;
+            }
+
+            if files_moved.insert(disk_block) {
+                // file not moved
+                compacted_disk.push(DiskBlock {
+                    data: disk_block.data,
+                    repetition: disk_block.repetition
+                });
+            }
+        }
+
+    }
+
+
+    return compacted_disk;
+}
+
+fn get_compacted_disk_rapresentation_moving_full_file_fast(disk: &Vec<DiskBlock>) -> Vec<DiskBlock> {
+    let mut compacted_disk: Vec<DiskBlock> = disk.iter().map(|d| DiskBlock { data: d.data, repetition: d.repetition }).collect();
+
+    let mut start_idx: usize = 0;
+    let mut end_idx = disk.len();
+    let mut remaining_end_block = DiskBlock  {
+        data: None,
+        repetition: 0
+    };
+
+    while start_idx != end_idx {
+        
+        let end_block = &disk[end_idx];
+        if let Some(data) = end_block.data {
+            // available spaces
+            let mut spaces = start_block.repetition;
+
+            // fill spaces with previous end block:
+            while spaces > 0 {
+
+                while remaining_end_block.repetition == 0 {
+                    end_idx = end_idx - 1;
+                    if end_idx == start_idx { break; }
+
+                    let end_block = &disk[end_idx];
+                    if let Some(end_data) = end_block.data {
+                        remaining_end_block = DiskBlock {
+                            data: Some(end_data),
+                            repetition: end_block.repetition
+                        };
+                    } 
+                }
+                
+                if remaining_end_block.repetition > spaces { // end block fill spaces
+                    compacted_disk.push(DiskBlock {
+                        data: remaining_end_block.data,
+                        repetition: spaces
+                    });
+                    remaining_end_block.repetition -= spaces;
+                    spaces = 0;
+                } else { // end block doesn't fill spaces
+                    compacted_disk.push(DiskBlock {
+                        data: remaining_end_block.data,
+                        repetition: remaining_end_block.repetition
+                    });
+                    spaces -= remaining_end_block.repetition;
+                    remaining_end_block.repetition = 0;
+                }
+            }
+            
+            if spaces == 0 {
+                start_idx += 1;
+            }
+        }
+
+    }
+
+    if remaining_end_block.repetition > 0 {
+        compacted_disk.push(DiskBlock {
+            data: remaining_end_block.data,
+            repetition: remaining_end_block.repetition
+        });
+    }
+
+    return compacted_disk;
+}
+
+
+fn get_compacted_disk_rapresentation_splitting_spaces(disk: &Vec<DiskBlock>) -> Vec<DiskBlock> {
     let mut compacted_disk: Vec<DiskBlock> = Vec::new();
 
     let mut start_idx: usize = 0;
