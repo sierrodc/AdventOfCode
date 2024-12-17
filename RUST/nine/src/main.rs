@@ -1,10 +1,10 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::hash::Hash;
 use std::time::Instant;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let init_ts = Instant::now();
-    let filename = "D:\\Personal\\AdventOfCode\\DATASET\\nine\\test.txt";
+    let filename = "D:\\Personal\\AdventOfCode\\DATASET\\nine\\input.txt";
     let diskmap = std::fs::read_to_string(filename)?;
 
     // convert diskmap [2333133121414131402] to blocks [00...111...2...333. etc]
@@ -19,7 +19,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let full_file_compacted_disk_fast: Vec<DiskBlock> = get_compacted_disk_rapresentation_moving_full_file_fast(&disk);
     let full_file_compacted_disk_fast_checksum = get_checksum(&full_file_compacted_disk_fast);
-
+    
     println!("Sum {compacted_disk_checksum}, not fragmenting fast {full_file_compacted_disk_fast_checksum}, not fragmenting optimized {full_file_compacted_disk_checksum} in: {:.2?}", init_ts.elapsed());
 
     Ok(())
@@ -104,68 +104,60 @@ fn get_compacted_disk_rapresentation_moving_full_file(disk: &Vec<DiskBlock>) -> 
 }
 
 fn get_compacted_disk_rapresentation_moving_full_file_fast(disk: &Vec<DiskBlock>) -> Vec<DiskBlock> {
+    // create a copy to modify
     let mut compacted_disk: Vec<DiskBlock> = disk.iter().map(|d| DiskBlock { data: d.data, repetition: d.repetition }).collect();
 
-    let mut start_idx: usize = 0;
-    let mut end_idx = disk.len();
-    let mut remaining_end_block = DiskBlock  {
-        data: None,
-        repetition: 0
-    };
+    let mut compacted_idx = compacted_disk.len()-1;
 
-    while start_idx != end_idx {
+    while 1 != compacted_idx {
         
-        let end_block = &disk[end_idx];
-        if let Some(data) = end_block.data {
+        let data_block = compacted_disk[compacted_idx]; // same as compacted_disk[compacted_idx]
+        if !data_block.data.is_none() { // let see if I can found a free space from the beginning
             // available spaces
-            let mut spaces = start_block.repetition;
-
-            // fill spaces with previous end block:
-            while spaces > 0 {
-
-                while remaining_end_block.repetition == 0 {
-                    end_idx = end_idx - 1;
-                    if end_idx == start_idx { break; }
-
-                    let end_block = &disk[end_idx];
-                    if let Some(end_data) = end_block.data {
-                        remaining_end_block = DiskBlock {
-                            data: Some(end_data),
-                            repetition: end_block.repetition
-                        };
-                    } 
-                }
-                
-                if remaining_end_block.repetition > spaces { // end block fill spaces
-                    compacted_disk.push(DiskBlock {
-                        data: remaining_end_block.data,
-                        repetition: spaces
-                    });
-                    remaining_end_block.repetition -= spaces;
-                    spaces = 0;
-                } else { // end block doesn't fill spaces
-                    compacted_disk.push(DiskBlock {
-                        data: remaining_end_block.data,
-                        repetition: remaining_end_block.repetition
-                    });
-                    spaces -= remaining_end_block.repetition;
-                    remaining_end_block.repetition = 0;
-                }
-            }
             
-            if spaces == 0 {
-                start_idx += 1;
+            let founded_space = compacted_disk.iter().enumerate()
+                .filter(|(_, blk)| blk.data.is_none())
+                .filter(|(_, blk)| blk.repetition >= data_block.repetition)
+                .filter(|(space_idx, _)| *space_idx < compacted_idx)
+                .next();
+
+            if let Some((space_idx, space_block)) = founded_space {
+                // todo
+                if space_block.repetition == data_block.repetition {
+                    // move there. no need to expand space because end space is no more usable.
+                    compacted_disk[space_idx] = DiskBlock {
+                        data: data_block.data,
+                        repetition: data_block.repetition
+                    };
+                    compacted_disk[compacted_idx] = DiskBlock {
+                        data: None,
+                        repetition: data_block.repetition
+                    };
+                    compacted_idx -= 1; // move before
+                } else {
+                    compacted_disk.insert(space_idx+1, DiskBlock {
+                        data: None,
+                        repetition: space_block.repetition - data_block.repetition
+                    });
+                    compacted_disk[compacted_idx+1 /*one item has been inserted before*/] = DiskBlock {
+                        data: None,
+                        repetition: data_block.repetition
+                    };
+                    compacted_disk[space_idx] = DiskBlock {
+                        data: data_block.data,
+                        repetition: data_block.repetition
+                    };
+                    
+                    compacted_idx -= 0; // don't move because a new block has been inserted
+                }
+            } else {
+                compacted_idx -= 1; //not able to find a good empty space before     
             }
+        } else {
+            compacted_idx -= 1; // space left where it is
         }
-
     }
-
-    if remaining_end_block.repetition > 0 {
-        compacted_disk.push(DiskBlock {
-            data: remaining_end_block.data,
-            repetition: remaining_end_block.repetition
-        });
-    }
+        
 
     return compacted_disk;
 }
@@ -271,7 +263,7 @@ fn get_disk_rapresentation(diskmap: &str) -> Vec<DiskBlock> {
     return disk;
 }
 
-#[derive(Hash, Eq, PartialEq)]
+#[derive(Hash, Eq, PartialEq, Copy, Clone)]
 struct DiskBlock {
     data: Option<u32>,
     repetition: u32
